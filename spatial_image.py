@@ -3,7 +3,7 @@
 A multi-dimensional spatial image data structure for Python."""
 
 __version__ = "0.2.1"
-
+import logging
 from typing import Union, Optional, Sequence, Hashable, Tuple, Mapping, Any, Literal
 from dataclasses import dataclass
 
@@ -511,7 +511,7 @@ class SpatialImageZYXDataClass(SpatialImageDataClass):
 
 @dataclass(init=False)
 class SpatialImageZYXCDataClass(SpatialImageZYXDataClass):
-    """A 3D spatial image with channels."""
+    """A 3D spatial image with channels last."""
 
     data: Data[Tuple[Z, Y, X, C], Any]
     c: Coordof[CAxis]
@@ -832,6 +832,84 @@ class SpatialImageCYXDataClass(SpatialImageDataClass):
 
 
 @dataclass(init=False)
+class SpatialImageZCYXDataClass(SpatialImageDataClass):
+    """A 3D spatial image with channels first."""
+
+    data: Data[Tuple[Z, C, Y, X], Any]
+    z: Coordof[ZAxis]
+    c: Coordof[CAxis]
+    y: Coordof[YAxis]
+    x: Coordof[XAxis]
+
+    def __init__(
+        self,
+        data,
+        scale: Optional[Union[Mapping[Hashable, float]]] = None,
+        translation: Optional[Union[Mapping[Hashable, float]]] = None,
+        name: str = default_name,
+        axis_names: Optional[Union[Mapping[Hashable, str]]] = None,
+        axis_units: Optional[Union[Mapping[Hashable, str]]] = None,
+        c_coords: Optional[Sequence[Union[AllInteger, str]]] = None,
+    ):
+        super().__init__(name)
+        self.data = data
+
+        if scale is None:
+            scale = {"z": 1.0, "y": 1.0, "x": 1.0}
+
+        if translation is None:
+            translation = {"z": 0.0, "y": 0.0, "x": 0.0}
+        
+        z_axis_name = "z"
+        if axis_names and "z" in axis_names:
+            z_axis_name = axis_names["z"]
+        z_axis_units = ""
+        if axis_units and "z" in axis_units:
+            z_axis_units = axis_units["z"]
+        self.z = ZAxis(
+            np.arange(data.shape[0], dtype=np.float64) * scale["z"] + translation["z"],
+            long_name=z_axis_name,
+            units=z_axis_units,
+        )
+
+        x_axis_name = "x"
+        if axis_names and "x" in axis_names:
+            x_axis_name = axis_names["x"]
+        x_axis_units = ""
+        if axis_units and "x" in axis_units:
+            x_axis_units = axis_units["x"]
+        self.x = XAxis(
+            np.arange(data.shape[3], dtype=np.float64) * scale["x"] + translation["x"],
+            long_name=x_axis_name,
+            units=x_axis_units,
+        )
+
+        y_axis_name = "y"
+        if axis_names and "y" in axis_names:
+            y_axis_name = axis_names["y"]
+        y_axis_units = ""
+        if axis_units and "y" in axis_units:
+            y_axis_units = axis_units["y"]
+        self.y = YAxis(
+            np.arange(data.shape[2], dtype=np.float64) * scale["y"] + translation["y"],
+            long_name=y_axis_name,
+            units=y_axis_units,
+        )
+
+        if c_coords is None:
+            c_coords = np.arange(data.shape[1])
+
+        c_axis_name = "c"
+        if axis_names is not None and "c" in axis_names:
+            c_axis_name = axis_names["c"]
+        c_axis_units = ""
+        if axis_units and "c" in axis_units:
+            c_axis_units["c"] = ""
+
+        self.c = CAxis(c_coords, c_axis_name, c_axis_units)
+
+
+@dataclass(init=False)
 class SpatialImageTCYXDataClass(SpatialImageDataClass):
     """A 2D spatial image with a time dimension and channels, channel first."""
 
@@ -1056,6 +1134,7 @@ SpatialImageDataClasses = {
     ("t", "c", "x"): SpatialImageTCXDataClass,
     ("c", "y", "x"): SpatialImageCYXDataClass,
     ("t", "c", "y", "x"): SpatialImageTCYXDataClass,
+    ("z", "c", "y", "x"): SpatialImageZCYXDataClass,
     ("t", "c", "z", "y", "x"): SpatialImageTCZYXDataClass,
 }
 
@@ -1121,6 +1200,7 @@ def to_spatial_image(
             dims = ("z", "y", "x")[-ndim:]
         elif ndim < 5:
             dims = ("z", "y", "x", "c")
+            logging.warning("Assuming channel dimension is last, if not, please specify dims.")
         elif ndim < 6:
             dims = ("t", "z", "y", "x", "c")
         else:

@@ -75,13 +75,22 @@ def test_3D_default_coords():
     assert np.array_equal(image.coords["x"], np.arange(6, dtype=np.float64))
 
 
-def test_4D_default_coords():
+def test_4D_default_coords_channels_last():
     array = np.random.random((3, 4, 6, 6))
     image = si.to_spatial_image(array)
     assert np.array_equal(image.coords["z"], np.arange(3, dtype=np.float64))
     assert np.array_equal(image.coords["y"], np.arange(4, dtype=np.float64))
     assert np.array_equal(image.coords["x"], np.arange(6, dtype=np.float64))
     assert np.array_equal(image.coords["c"], np.arange(6, dtype=np.float64))
+
+def test_4D_default_coords_channels_first():
+    array = np.random.random((3, 4, 6, 6))
+    image = si.to_spatial_image(array, dims=("z", "c", "y", "x"))
+    assert np.array_equal(image.coords["z"], np.arange(3, dtype=np.float64))
+    assert np.array_equal(image.coords["c"], np.arange(4, dtype=np.float64))
+    assert np.array_equal(image.coords["y"], np.arange(6, dtype=np.float64))
+    assert np.array_equal(image.coords["x"], np.arange(6, dtype=np.float64))
+
 
 
 def test_5D_default_coords():
